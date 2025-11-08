@@ -1,0 +1,7 @@
+{
+  "buildCommand": "cd ../.. && pnpm install && pnpm run build --filter=super-admin",
+  "devCommand": "cd ../.. && pnpm run dev --filter=super-admin",
+  "installCommand": "pnpm install",
+  "framework": "nextjs",
+  "outputDirectory": ".next"
+}
