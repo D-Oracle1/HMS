@@ -22,5 +22,16 @@
   "engines": {
     "node": ">=18"
   },
-  "packageManager": "pnpm@8.15.0"
+  "packageManager": "pnpm@8.15.0",
+  "dependencies": {
+    "@types/bcryptjs": "^3.0.0",
+    "@types/nodemailer": "^7.0.3",
+    "bcryptjs": "^3.0.3",
+    "date-fns": "^4.1.0",
+    "i18next": "^25.6.1",
+    "next-i18next": "^15.4.2",
+    "nodemailer": "^7.0.10",
+    "react-i18next": "^16.2.4",
+    "zod": "^4.1.12"
+  }
 }

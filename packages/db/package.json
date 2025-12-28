@@ -11,8 +11,13 @@
     "db:seed": "tsx seed.ts",
     "db:studio": "prisma studio"
   },
+  "prisma": {
+    "seed": "tsx seed.ts"
+  },
   "dependencies": {
-    "@prisma/client": "^5.14.0"
+    "@prisma/client": "^5.14.0",
+    "axios": "^1.13.2",
+    "redis": "^5.10.0"
   },
   "devDependencies": {
     "prisma": "^5.14.0",

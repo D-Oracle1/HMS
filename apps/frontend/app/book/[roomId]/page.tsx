@@ -1,30 +1,40 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Label, Input } from "ui";
 import { Calendar, Users, CreditCard } from "lucide-react";
 import { getStripe } from "../../../lib/stripe";
+import Link from "next/link";
 
 export default function BookingPage() {
   const params = useParams();
+  const router = useRouter();
+  const { data: session, status } = useSession();
   const roomId = params.roomId as string;
 
   const [room, setRoom] = useState<any>(null);
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [fetchingRoom, setFetchingRoom] = useState(true);
 
   useEffect(() => {
-    // Mock room data - replace with actual API call
-    setRoom({
-      id: roomId,
-      name: "Deluxe Suite",
-      description: "Luxury suite with ocean view and premium amenities",
-      price: 250,
-      capacity: 2,
-      imageUrl: "/rooms/deluxe-suite.jpg",
-    });
+    async function fetchRoom() {
+      try {
+        const response = await fetch(`/api/rooms/${roomId}`);
+        if (response.ok) {
+          const data = await response.json();
+          setRoom(data);
+        }
+      } catch (error) {
+        console.error("Error fetching room:", error);
+      } finally {
+        setFetchingRoom(false);
+      }
+    }
+    fetchRoom();
   }, [roomId]);
 
   const calculateTotal = () => {
@@ -66,14 +76,53 @@ export default function BookingPage() {
     }
   };
 
+  if (fetchingRoom) {
+    return <div className="flex items-center justify-center min-h-screen">Loading room details...</div>;
+  }
+
   if (!room) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Card className="max-w-md">
+          <CardHeader>
+            <CardTitle>Room Not Found</CardTitle>
+            <CardDescription>The room you're looking for doesn't exist.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/">
+              <Button className="w-full">Back to Home</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (status === "unauthenticated") {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <Card className="max-w-md">
+          <CardHeader>
+            <CardTitle>Sign In Required</CardTitle>
+            <CardDescription>Please sign in to book this room</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Link href="/login">
+              <Button className="w-full">Sign In</Button>
+            </Link>
+            <Link href="/register">
+              <Button variant="outline" className="w-full">Create Account</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   const total = calculateTotal();
 
   return (
-    <div className="min-h-screen bg-background p-8">
+    <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-4xl mx-auto">
         <h1 className="text-4xl font-bold mb-8">Book Your Stay</h1>
 

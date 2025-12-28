@@ -12,4 +12,7 @@ if (process.env.NODE_ENV !== "production") {
 
 export * from "./generated/client";
 export { getTenantFromHost } from "./tenantResolver";
-export type { Role } from "./generated/client";
+export { hashPassword, verifyPassword } from "./password";
+export * from "./validation";
+export * from "./rateLimit";
+export * from "./auditLog";

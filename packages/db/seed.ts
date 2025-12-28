@@ -1,4 +1,5 @@
-import { PrismaClient, Role } from "./generated/client";
+import { PrismaClient } from "./generated/client";
+import { hashPassword } from "./password";
 
 const prisma = new PrismaClient();
 
@@ -13,11 +14,11 @@ async function main() {
       name: "Demo Hotel Group",
       subdomain: "demo",
       logoUrl: "/demo-logo.png",
-      theme: {
+      theme: JSON.stringify({
         primaryColor: "#000000",
         secondaryColor: "#ffffff",
         fontFamily: "Inter",
-      },
+      }),
       isActive: true,
     },
   });
@@ -31,9 +32,12 @@ async function main() {
     create: {
       id: "demo-hotel-1",
       name: "Demo Grand Hotel",
+      description: "Experience luxury like never before at Demo Grand Hotel. Our 5-star property offers world-class amenities, stunning ocean views, and exceptional service that will make your stay unforgettable. Located in the heart of Lagos, we provide the perfect blend of business and leisure facilities.",
       address: "123 Main Street, Lagos, Nigeria",
       email: "info@demograndhotel.com",
       phone: "+234-123-456-7890",
+      videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ", // Sample video URL
+      imageUrl: "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200",
       tenantId: tenant.id,
     },
   });
@@ -82,15 +86,18 @@ async function main() {
     console.log("Created room:", room.name);
   }
 
-  // Create demo users
+  // Create demo users with hashed passwords
+  // Default password for all demo users: "password123"
+  const hashedPassword = await hashPassword("password123");
+
   const superAdmin = await prisma.user.upsert({
     where: { email: "superadmin@hms.com" },
     update: {},
     create: {
       email: "superadmin@hms.com",
       name: "Super Admin",
-      password: "$2a$10$YourHashedPasswordHere", // In production, use bcrypt
-      role: Role.SUPER_ADMIN,
+      password: hashedPassword,
+      role: "SUPER_ADMIN",
     },
   });
 
@@ -100,8 +107,8 @@ async function main() {
     create: {
       email: "admin@demo.com",
       name: "Hotel Admin",
-      password: "$2a$10$YourHashedPasswordHere", // In production, use bcrypt
-      role: Role.ADMIN,
+      password: hashedPassword,
+      role: "ADMIN",
       tenantId: tenant.id,
     },
   });
@@ -112,8 +119,8 @@ async function main() {
     create: {
       email: "user@demo.com",
       name: "Demo User",
-      password: "$2a$10$YourHashedPasswordHere", // In production, use bcrypt
-      role: Role.USER,
+      password: hashedPassword,
+      role: "USER",
       tenantId: tenant.id,
     },
   });

@@ -4,7 +4,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -13,7 +13,7 @@ model Tenant {
   name      String
   subdomain String   @unique
   logoUrl   String?
-  theme     Json?
+  theme     String?  // JSON stored as text
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -21,74 +21,277 @@ model Tenant {
   users     User[]
 }
 
+model RoomType {
+  id          String   @id @default(cuid())
+  name        String   // "Deluxe", "Suite", "Standard", "Villa", "Executive"
+  description String?
+  amenities   String?  // JSON array of amenities
+  icon        String?  // Lucide icon name
+  rooms       Room[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
 model Hotel {
-  id        String    @id @default(cuid())
-  name      String
-  address   String
-  email     String?
-  phone     String?
-  rooms     Room[]
-  bookings  Booking[]
-  tenantId  String
-  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id              String    @id @default(cuid())
+  name            String
+  address         String
+  description     String?   // Hotel description
+  email           String?
+  phone           String?
+  videoUrl        String?   // YouTube, Vimeo, or direct video URL
+  imageUrl        String?   // Hotel main image
+
+  // Location fields for geospatial features
+  latitude        Float?
+  longitude       Float?
+  city            String?
+  state           String?
+  country         String    @default("Nigeria")
+  postalCode      String?
+
+  // Amenities and features
+  amenities       String?   // JSON array of amenities
+
+  // Booking rules
+  minStayDays     Int       @default(1)
+  maxStayDays     Int       @default(30)
+  blackoutDates   String?   // JSON stored as text - Array of date ranges when bookings are not allowed
+  cancellationFee Float     @default(0)
+  checkInTime     String    @default("14:00")
+  checkOutTime    String    @default("11:00")
+
+  // Ratings and features
+  rating          Float     @default(0.0)
+  reviewCount     Int       @default(0)
+  featured        Boolean   @default(false)
+  verified        Boolean   @default(false)
+
+  // Relations
+  rooms           Room[]
+  bookings        Booking[]
+  reviews         Review[]
+  tenantId        String
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([latitude, longitude])
+  @@index([city])
+  @@index([rating])
+  @@index([featured])
 }
 
 model Room {
-  id          String    @id @default(cuid())
-  name        String
-  description String?
-  price       Float
-  capacity    Int       @default(2)
-  available   Boolean   @default(true)
-  imageUrl    String?
-  hotelId     String
-  hotel       Hotel     @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  bookings    Booking[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id           String      @id @default(cuid())
+  name         String
+  description  String?
+  price        Float
+  capacity     Int         @default(2)
+  maxOccupancy Int         @default(2)
+  available    Boolean     @default(true)
+  imageUrl     String?
+  images       String?     // JSON array of image URLs
+
+  // Room categorization and status
+  status       String      @default("AVAILABLE") // AVAILABLE, OCCUPIED, MAINTENANCE, CLEANING, RESERVED
+  roomTypeId   String?
+  roomType     RoomType?   @relation(fields: [roomTypeId], references: [id])
+  floor        Int?
+  roomNumber   String?
+  amenities    String?     // JSON array of room-specific amenities
+
+  // Relations
+  hotelId      String
+  hotel        Hotel       @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  bookings     Booking[]
+
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([status])
+  @@index([roomTypeId])
+  @@index([hotelId])
 }
 
 model User {
-  id        String    @id @default(cuid())
-  email     String    @unique
-  name      String?
-  password  String
-  role      Role      @default(USER)
-  tenantId  String?
-  tenant    Tenant?   @relation(fields: [tenantId], references: [id], onDelete: SetNull)
-  bookings  Booking[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id                String         @id @default(cuid())
+  email             String         @unique
+  name              String?
+  password          String
+  role              String         @default("USER")  // USER, ADMIN, SUPER_ADMIN
+
+  // Additional user info
+  phone             String?
+  avatar            String?
+  preferredLanguage String         @default("en")
+  favorites         String?        // JSON array of hotel IDs
+  emailVerified     Boolean        @default(false)
+  phoneVerified     Boolean        @default(false)
+
+  // Relations
+  tenantId          String?
+  tenant            Tenant?        @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  bookings          Booking[]
+  reviews           Review[]
+  notifications     Notification[]
+
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@index([phone])
+  @@index([email])
 }
 
 model Booking {
-  id         String        @id @default(cuid())
-  checkIn    DateTime
-  checkOut   DateTime
-  totalPrice Float
-  status     BookingStatus @default(PENDING)
-  paymentId  String?
-  userId     String
-  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  roomId     String
-  room       Room          @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  hotelId    String
-  hotel      Hotel         @relation(fields: [hotelId], references: [id], onDelete: Cascade)
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
+  id                 String               @id @default(cuid())
+  checkIn            DateTime
+  checkOut           DateTime
+  totalPrice         Float
+  status             String               @default("PENDING")  // PENDING, CONFIRMED, CANCELLED, COMPLETED
+  paymentId          String?
+
+  // Guest information
+  guestName          String
+  guestEmail         String
+  guestPhone         String
+  guests             Int                  @default(1)
+  specialRequests    String?
+
+  // Cancellation info
+  cancellationReason String?
+  cancelledAt        DateTime?
+
+  // Relations
+  userId             String
+  user               User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roomId             String
+  room               Room                 @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  hotelId            String
+  hotel              Hotel                @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  review             Review?
+  transactions       PaymentTransaction[]
+
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  @@index([status])
+  @@index([checkIn])
+  @@index([guestEmail])
+  @@index([userId])
 }
 
-enum Role {
-  USER
-  ADMIN
-  SUPER_ADMIN
+model Review {
+  id          String   @id @default(cuid())
+  rating      Int      // 1-5 stars
+  comment     String?
+  isVerified  Boolean  @default(false)  // Only true if user had confirmed booking
+
+  // Category ratings (Booking.com style)
+  cleanliness Int?     // 1-5 stars
+  location    Int?     // 1-5 stars
+  service     Int?     // 1-5 stars
+  value       Int?     // 1-5 stars (value for money)
+
+  // Relations
+  hotelId     String
+  hotel       Hotel    @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookingId   String?  @unique
+  booking     Booking? @relation(fields: [bookingId], references: [id])
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([hotelId])
+  @@index([userId])
+  @@index([rating])
+  @@index([createdAt])
 }
 
-enum BookingStatus {
-  PENDING
-  CONFIRMED
-  CANCELLED
-  COMPLETED
+model Notification {
+  id        String   @id @default(cuid())
+  type      String   // BOOKING_CONFIRMED, PAYMENT_SUCCESS, REVIEW_REMINDER, etc.
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  data      String?  // JSON for additional context
+
+  // Relations
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+  @@index([createdAt])
+}
+
+model PaymentTransaction {
+  id            String   @id @default(cuid())
+  amount        Float
+  currency      String   @default("NGN")
+  paymentMethod String   // "paystack", "card", "bank_transfer", "ussd"
+  paystackRef   String?  @unique  // Paystack transaction reference
+  status        String   // PENDING, SUCCESS, FAILED, REFUNDED
+  metadata      String?  // JSON for Paystack metadata
+
+  // Relations
+  bookingId     String
+  booking       Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([paystackRef])
+  @@index([status])
+  @@index([bookingId])
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  action       String
+  userId       String?
+  tenantId     String?
+  resourceId   String?
+  resourceType String?
+  metadata     String?  // JSON stored as text
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+  @@index([tenantId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// User preferences for personalization
+model UserPreferences {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  favorites     String?  // JSON array of hotel IDs
+  searchHistory String?  // JSON array of recent searches
+  preferences   String?  // JSON object for user preferences (language, currency, etc.)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId])
+}
+
+// Track booking activity for urgency signals
+model BookingActivity {
+  id           String   @id @default(cuid())
+  hotelId      String
+  roomId       String?
+  activityType String   // 'booking', 'view', 'search'
+  metadata     String?  // JSON for additional data
+  timestamp    DateTime @default(now())
+
+  @@index([hotelId, timestamp])
+  @@index([roomId, timestamp])
+  @@index([activityType])
 }
